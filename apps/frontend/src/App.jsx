@@ -65,6 +65,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [apiUrl] = useState("http://localhost:8000");
 
   const textareaRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -85,31 +86,6 @@ export default function App() {
     setTheme(isDark ? "light" : "dark");
   };
 
-  const simulateAPICall = async (userQuestion) => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const responses = [
-      {
-        sql: "SELECT name, email, created_at FROM users WHERE status = 'active' ORDER BY created_at DESC LIMIT 10;",
-        result:
-          "Ich habe 10 aktive Benutzer gefunden. Die neuesten sind: Max Müller (max@example.com), Anna Schmidt (anna@example.com), und Peter Weber (peter@example.com). Alle wurden in den letzten 30 Tagen erstellt.",
-        tableData: [
-          { name: "Max Müller", email: "max@example.com", created_at: "2025-11-20" },
-          { name: "Anna Schmidt", email: "anna@example.com", created_at: "2025-11-18" },
-          { name: "Peter Weber", email: "peter@example.com", created_at: "2025-11-15" },
-        ],
-      },
-      {
-        sql: "SELECT COUNT(*) as total, AVG(amount) as avg_amount FROM orders WHERE date >= '2025-11-01';",
-        result:
-          "Im November 2025 wurden insgesamt 1.247 Bestellungen mit einem Durchschnittswert von 89,42 € erfasst.",
-        tableData: [{ total: 1247, avg_amount: "89.42 €" }],
-      },
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
   const handleSubmit = async () => {
     if (!question.trim() || isLoading) return;
 
@@ -120,28 +96,52 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentQuestion = question.trim();
     setQuestion("");
     setIsLoading(true);
 
     try {
-      const response = await simulateAPICall(question);
+      // Echter API-Call zum Backend
+      const response = await fetch(`${apiUrl}/api/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: currentQuestion,
+          conversation_history: messages.slice(-6).map((msg) => ({
+            user: msg.type === "user" ? msg.content : "",
+            sql: msg.sql || "",
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
 
       const assistantMessage = {
         id: Date.now() + 1,
         type: "assistant",
-        content: response.result,
-        sql: response.sql,
-        tableData: response.tableData,
+        content: data.result,
+        sql: data.sql,
+        tableData: data.tableData,
+        confidence: data.confidence,
         showSQL: false,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      console.error("API Error:", error);
       const errorMessage = {
         id: Date.now() + 1,
         type: "error",
         content:
-          "Es gab ein Problem bei der Verarbeitung Ihrer Anfrage. Bitte versuchen Sie es erneut.",
+          "Es gab ein Problem bei der Verarbeitung Ihrer Anfrage. Bitte versuchen Sie es erneut. Fehler: " +
+          error.message,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -169,9 +169,9 @@ export default function App() {
   };
 
   const exampleQuestions = [
-    "Zeige mir alle aktiven Benutzer",
-    "Wie viele Bestellungen gab es diesen Monat?",
-    "Welche Produkte sind am beliebtesten?",
+    "Zeige mir alle aktiven Kunden",
+    "Wie viele Transaktionen gab es im letzten Monat?",
+    "Welche Konten haben einen negativen Saldo?",
   ];
 
   return (
@@ -211,11 +211,14 @@ export default function App() {
                 <div key={msg.id} className={`message ${msg.type}`}>
                   <div className="message-label">
                     {msg.type === "user" ? "Sie" : msg.type === "error" ? "Fehler" : "Assistent"}
+                    {msg.confidence && (
+                      <span className="confidence-badge">Konfidenz: {msg.confidence}</span>
+                    )}
                   </div>
                   <div className="message-content">
                     <div>{msg.content}</div>
 
-                    {msg.tableData && (
+                    {msg.tableData && msg.tableData.length > 0 && (
                       <div className="data-table">
                         <table>
                           <thead>
@@ -229,7 +232,7 @@ export default function App() {
                             {msg.tableData.map((row, i) => (
                               <tr key={i}>
                                 {Object.values(row).map((val, j) => (
-                                  <td key={j}>{val}</td>
+                                  <td key={j}>{val !== null ? val.toString() : "NULL"}</td>
                                 ))}
                               </tr>
                             ))}
