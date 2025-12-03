@@ -1,6 +1,6 @@
 # ChatWithYourData – Text2SQL Projekt 📌
 
-## Übersicht
+## Übersicht für das Projekt
 
 Dieses Projekt wurde im Rahmen des Moduls "Projekt" an der DHBW Stuttgart entwickelt. Ziel ist es, eine Anwendung zu erstellen, die es Nutzer:innen ermöglicht, natürliche Sprache zu verwenden, um SQL-Abfragen automatisch zu generieren und eine Datenbank abzufragen. Dazu wird ein Large Language Model (LLM) eingebunden, das Text → SQL übersetzt.
 
