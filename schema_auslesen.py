@@ -22,7 +22,7 @@ def list_table_schemas(db_path):
         columns = cursor.fetchall()
 
         if not columns:
-            print("  Keine Spalten gefunden.")
+            print("Keine Spalten gefunden.")
             continue
 
         for col in columns:
