@@ -1,12 +1,12 @@
 # server/prompts/prompt_builder.py
-import json
+from prompts import SYSTEM_PROMPTS
 
 # JSON-Datei mit System Prompts laden (entspricht system-prompts.js/.json)
-with open("./server/prompts/system-prompts.json", "r", encoding="utf-8") as f:
-    SYSTEM_PROMPTS = json.load(f)
+# with open("./server/prompts/system-prompts.json", "r", encoding="utf-8") as f:
+#    SYSTEM_PROMPTS = json.load(f)
 
 
-def build_sql_generation_prompt(user_query, schema_context, knowledge, clarifications):
+def build_sql_generation_prompt(user_query, schema_context, knowledge = None, clarifications = None): 
     """
     1:1 Portierung von buildSQLGenerationPrompt aus JavaScript.
     """
