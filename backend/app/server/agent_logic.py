@@ -5,16 +5,32 @@ from typing import Dict, Any, List
 from dotenv import load_dotenv
 from openai import OpenAI   
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, CREDIT_KB_PATH, CREDIT_SCHEMA_PATH, CREDIT_COLUMN_MEANING_PATH
-from .database_tool import execute_sql_query
-from .prompts.prompts import SYSTEM_PROMPTS
-from .prompts.prompt_builder import build_sql_generation_prompt
+from app.server.config import LLAMA_API_KEY, OPENAI_API_KEY, LLAMA_MODEL, OPENAI_MODEL, CREDIT_KB_PATH, CREDIT_SCHEMA_PATH, CREDIT_COLUMN_MEANING_PATH
+from app.server.database_tool import execute_sql_query
+from app.server.prompts.prompts import SYSTEM_PROMPTS
+from app.server.prompts.prompt_builder import build_sql_generation_prompt
+
 
 # Laden der Umgebungsvariablen
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+print("Loaded OPENAI_API_KEY:", OPENAI_API_KEY)
+print("Loaded LLAMA_API_KEY:", LLAMA_API_KEY)
+
+# Choose provider: OpenAI or LLAMA API
+if OPENAI_API_KEY:
+    # Standard OpenAI client
+    client = OpenAI(api_key=OPENAI_API_KEY)
+elif LLAMA_API_KEY:
+    # Llama API (OpenAI-compatible)
+    client = OpenAI(
+        api_key=LLAMA_API_KEY,
+        base_url="https://api.llama-api.com/v1"
+    )
+else:
+    raise RuntimeError("No API key found. Set OPENAI_API_KEY or LLAMA_API_KEY.")
+
 
 # Hilfsfunktion Schema und Knowledge laden
 def load_schema_context() -> str:
@@ -110,5 +126,46 @@ def run_text_to_sql_pipeline(user_query: str) -> Dict[str, Any]:
         if not sql:
             return {"type": "clarfification_needed", "stage": "sql_generation", "reason": "Model could not generate SQL", "questions": sql_questions}
         
-        # 4. SQL Execution
+        # 4. SQL Execution / 5. Validation 
+        result_md = execute_sql_query(sql)
+        # wenn ein Fehlertext aus der Datenbank kommt, Self-Correction probieren 
+        if isinstance(result_md, str) and result_md.startswith("Fehler"):
+            validation_input = f"""SQL query: {sql}
+            Database schema: {schema_context}
+            Database error message: {result_md}
+            """
+            validation_result = call_stage("SQL_VALIDATION", validation_input)
+            correction_input = f"""Original SQL query: {sql}
+            Validation result (JSON): {json.dumps(validation_result, indent=2, ensure_ascii=False)}
+            Database schema: {schema_context}
+            """
+            correction_result = call_stage("SELF_CORRECTION", correction_input)
+            fixed_sql = correction_result.get("fixed_sql")
+            if fixed_sql:
+                sql = fixed_sql
+                result_md = execute_sql_query(sql)
+
+        # 6. Explanation
+        explanation_input = f"""User query: {user_query}
+        SQL query: {sql}
+        SQL results (Markdown or Text): {result_md}
+        """
+        explanation_result = call_stage("EXPLANATION", explanation_input)
+        explanation_text = explanation_result.get("natural_language_explanation", "Die Anfrage wurde ausgeführt, aber es konnte keine Erklärung generiert werden.")
+        
+        # Endresultat zusammenstellen
+        return {
+            "type": "success",
+            "sql": sql,
+            "confidence": confidence,
+            "result": result_md,
+            "explanation": explanation_text,
+            "debug": {
+                "ambiguity": amb_result,
+                "knowledge_search": knowledge_result,
+                "sql_generation": sql_gen_result,
+                "explanation": explanation_result
+            }
+        }
+
         

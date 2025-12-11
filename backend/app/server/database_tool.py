@@ -1,7 +1,7 @@
 # Zugriff auf die Datenbank
 import sqlite3
 import pandas as pd
-from .config import DB_PATH
+from app.server.config import DB_PATH 
 
 def execute_sql_query(query: str) -> str:
     conn = None

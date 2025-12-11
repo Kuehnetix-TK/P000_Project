@@ -5,9 +5,14 @@ from pathlib import Path
 # hier verbinden wir die Dateien
 
 # env laden
-BASE_DIR = Path(__file__).resolve().parent.parent
-ENV_PATH = BASE_DIR / ".env"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_PATH = PROJECT_ROOT / "backend" / ".env"
 load_dotenv(ENV_PATH)
+
+print("ENV PATH LOADING FROM:", ENV_PATH)
+print("OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
+print("LLAMA_API_KEY:", os.getenv("LLAMA_API_KEY"))
+
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
