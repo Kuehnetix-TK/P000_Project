@@ -1,0 +1,6 @@
+EOF
+fastapi
+uvicorn[standard]
+python-dotenv
+openai
+pandas
