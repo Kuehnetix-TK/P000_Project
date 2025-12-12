@@ -5,7 +5,7 @@ from typing import Dict, Any, List
 from dotenv import load_dotenv
 from openai import OpenAI   
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, CREDIT_KB_PATH, CREDIT_SCHEMA_PATH, CREDIT_COLUMN_MEANING_PATH
+from app.config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, CREDIT_KB_PATH, CREDIT_SCHEMA_PATH, CREDIT_COLUMN_MEANING_PATH
 from .database_tool import execute_sql_query
 from .prompts.prompts import SYSTEM_PROMPTS
 from .prompts.prompt_builder import build_sql_generation_prompt
@@ -14,7 +14,14 @@ from .prompts.prompt_builder import build_sql_generation_prompt
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY/LLAMA_API_KEY ist nicht gesetzt. Bitte .env pruefen.")
+
+_client_kwargs = {"api_key": OPENAI_API_KEY}
+if OPENAI_BASE_URL:
+    _client_kwargs["base_url"] = OPENAI_BASE_URL  # z.B. https://openrouter.ai/api/v1 fuer Llama
+
+client = OpenAI(**_client_kwargs)
 
 # Hilfsfunktion Schema und Knowledge laden
 def load_schema_context() -> str:
