@@ -1,6 +1,7 @@
 import os 
 from dotenv import load_dotenv
 from pathlib import Path
+from backend.app.server.agent_logic import BASE_DIR
 
 # hier verbinden wir die Dateien
 
